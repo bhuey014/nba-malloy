@@ -1,0 +1,35 @@
+source: regular_season is duckdb.table('regular_season_totals_2010_2024.csv') extend {
+
+  measure: 
+    avg_points is PTS.avg()
+    total_wins is count() { where: WL = 'W' }
+    avg_three_pct is FG3_PCT.avg()
+    total_games is count()
+}
+// How has 3-point shooting evolved over the years?
+run: regular_season -> {
+  group_by: SEASON_YEAR
+  aggregate: avg_three_pct
+  order_by: SEASON_YEAR
+}
+// Which teams have the most wins since 2010?
+run: regular_season -> {
+  group_by: TEAM_NAME
+  aggregate: total_wins
+  order_by: total_wins desc
+  limit: 10
+}
+source: box_scores is duckdb.table('regular_season_box_scores_2010_2024_part_1.csv') extend {
+  measure:
+    avg_points is points.avg()
+    total_games is count()
+}
+
+// Top 10 highest scoring players on average
+run: box_scores -> {
+  group_by: personName
+  aggregate: avg_points, total_games
+  having: total_games > 100
+  order_by: avg_points desc
+  limit: 10
+}
