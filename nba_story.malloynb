@@ -1,69 +1,141 @@
 >>>markdown
-# 🏀 The 3-Point Revolution: How the NBA Changed from 2010–2024
+# 🏀 The Modern NBA Playbook: Did Playing Faster and Shooting More 3s Actually Win Games?
 
-I've always watched the NBA and noticed the game looks different than it did 10 years ago — more threes, faster pace, different stars. I wanted to see if the data actually backed that up. Here's what I found.
+I've always wondered whether the modern NBA's obsession with 3-pointers and pace actually leads to more wins — or if it's just aesthetics. I used 14 seasons of NBA data (2010–2024) to find out. Here's what the data revealed.
 
 ---
 
-## Question 1: Which teams dominated the last 14 seasons?
+## Chapter 1: The Game Got Faster
 >>>malloy
 source: regular_season is duckdb.table('regular_season_totals_2010_2024.csv') extend {
   measure:
     avg_points is PTS.avg()
     total_wins is count() { where: WL = 'W' }
+    total_games is count()
+    avg_three_attempts is FG3A.avg()
     avg_three_pct is FG3_PCT.avg()
+    avg_assists is AST.avg()
+    avg_turnovers is TOV.avg()
+    avg_ft_pct is FT_PCT.avg()
+    avg_fg_attempts is FGA.avg()
+    avg_possessions is (FGA.avg() + (0.44 * FTA.avg()) - OREB.avg() + TOV.avg())
+    avg_fg_pct is FG_PCT.avg()
+    win_pct is total_wins / total_games
+}
+
+source: box_scores is duckdb.table('regular_season_box_scores_2010_2024_part_1.csv') extend {
+  measure:
+    avg_points is points.avg()
+    avg_three_attempts is threePointersAttempted.avg()
+    avg_three_made is threePointersMade.avg()
     total_games is count()
 }
 
 run: regular_season -> {
+  group_by: SEASON_YEAR
+  aggregate: avg_points, avg_possessions, avg_three_attempts
+  order_by: SEASON_YEAR
+}
+>>>markdown
+Points, possessions, and 3-point attempts all trended upward together. The game didn't just change in one way — it changed in every way simultaneously. But when did it actually tip over?
+
+---
+
+## Chapter 2: Who Pioneered It?
+>>>malloy
+run: regular_season -> {
+  group_by: SEASON_YEAR, TEAM_NAME
+  aggregate: avg_three_attempts
+  order_by: avg_three_attempts desc
+  limit: 10
+}
+>>>malloy
+run: box_scores -> {
+  group_by: season_year, personName
+  aggregate: avg_three_attempts
+  having: total_games > 50
+  order_by: avg_three_attempts desc
+  limit: 10
+}
+>>>markdown
+The data points to a clear pioneer — and it's no surprise. One team and one player led the charge before everyone else caught on.
+
+---
+
+## Chapter 3: Did the 3-Point Revolution Actually Win Games?
+>>>malloy
+run: regular_season -> {
   group_by: TEAM_NAME
-  aggregate: total_wins
+  aggregate: avg_three_attempts, win_pct
+  order_by: win_pct desc
+  limit: 15
+}
+>>>malloy
+run: regular_season -> {
+  group_by: TEAM_NAME
+  aggregate: avg_points, win_pct
+  order_by: win_pct desc
+  limit: 15
+}
+>>>markdown
+Scoring more does correlate with winning — but the relationship between 3-point attempts and winning is more complicated. Some of the best teams shot a lot of 3s, but so did some bad ones.
+
+---
+
+## Chapter 4: What Actually Predicts Winning?
+>>>malloy
+run: regular_season -> {
+  group_by: TEAM_NAME
+  aggregate: avg_turnovers, win_pct
+  order_by: win_pct desc
+  limit: 15
+}
+>>>malloy
+run: regular_season -> {
+  group_by: TEAM_NAME
+  aggregate: avg_assists, win_pct
+  order_by: win_pct desc
+  limit: 15
+}
+>>>markdown
+Turnovers and assists tell a cleaner story than 3-point attempts. Teams that take care of the ball and share it win more consistently. The 3-point revolution changed the style of play, but the fundamentals still determine the outcome.
+
+---
+
+## Chapter 5: Who Mastered the Modern Game?
+>>>malloy
+run: regular_season -> {
+  group_by: TEAM_NAME
+  aggregate: total_wins, win_pct
   order_by: total_wins desc
   limit: 10
 }
 >>>markdown
-The Golden State Warriors lead with 676 wins — no surprise given their dynasty. But seeing the Celtics and Heat right behind them tells a deeper story about consistent franchises.
+The Warriors sit at the top — the team that pioneered the 3-point revolution also won the most games. But the Celtics and Spurs, known more for fundamentals than style, aren't far behind.
 
 ---
 
-## Question 2: Has 3-point shooting percentage improved?
+## Chapter 6: Who Benefited the Most?
 >>>malloy
-run: regular_season -> {
-  group_by: SEASON_YEAR
-  aggregate: avg_three_pct
-  order_by: SEASON_YEAR
-}
->>>markdown
-Surprisingly, the percentage has stayed relatively flat around 35% — teams aren't shooting better, they're just shooting way more. Which leads to the most surprising finding...
-
----
-
-## Question 3: How many more 3-pointers are teams attempting?
->>>malloy
-run: regular_season -> {
-  group_by: SEASON_YEAR
-  aggregate: avg_three_attempts is FG3A.avg()
-  order_by: SEASON_YEAR
-}
->>>markdown
-This is the 3-point revolution in data form. Teams went from 18 attempts per game in 2010 to over 34 by 2020 — nearly doubled in a decade. The strategy completely changed even though the accuracy didn't.
-
----
-
-## Question 4: Who are the most prolific scorers of this era?
->>>malloy
-source: box_scores is duckdb.table('regular_season_box_scores_2010_2024_part_1.csv') extend {
-  measure:
-    avg_points is points.avg()
-    total_games is count()
-}
-
 run: box_scores -> {
   group_by: personName
-  aggregate: avg_points, total_games
-  having: total_games > 100
+  aggregate: avg_three_attempts, avg_three_made, avg_points
+  having: total_games > 200
+  order_by: avg_three_attempts desc
+  limit: 10
+}
+>>>malloy
+run: box_scores -> {
+  group_by: personName
+  aggregate: avg_points, avg_three_attempts, avg_three_made, total_games
+  having: total_games > 300
   order_by: avg_points desc
   limit: 10
 }
 >>>markdown
-Luka Doncic leads all players with 28.3 points per game — remarkable. But Stephen Curry's combination of 906 games played and 24.5 average shows unmatched consistency over the entire era.
+The players who thrived most in this era aren't just volume 3-point shooters — they're complete scorers who used the 3-point line as one weapon among many. Luka Doncic and Stephen Curry stand out as the ultimate products of the modern NBA — high scorers, high 3-point volume, and sustained over hundreds of games.
+
+---
+
+## Conclusion
+The NBA changed dramatically from 2010 to 2024 — faster pace, more possessions, and nearly double the 3-point attempts. The Warriors and Stephen Curry pioneered it. But the data reveals something surprising: shooting more 3s doesn't guarantee winning. Turnovers and assists are still the best predictors of success. The revolution changed how the game looks — but not what makes a team great.
