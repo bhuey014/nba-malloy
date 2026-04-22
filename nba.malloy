@@ -1,35 +1,118 @@
 source: regular_season is duckdb.table('regular_season_totals_2010_2024.csv') extend {
-
-  measure: 
+  measure:
     avg_points is PTS.avg()
     total_wins is count() { where: WL = 'W' }
-    avg_three_pct is FG3_PCT.avg()
     total_games is count()
+    avg_three_attempts is FG3A.avg()
+    avg_three_pct is FG3_PCT.avg()
+    avg_assists is AST.avg()
+    avg_turnovers is TOV.avg()
+    avg_ft_pct is FT_PCT.avg()
+    avg_fg_attempts is FGA.avg()
+    avg_possessions is (FGA.avg() + (0.44 * FTA.avg()) - OREB.avg() + TOV.avg())
+    avg_fg_pct is FG_PCT.avg()
+    win_pct is total_wins / total_games
 }
-// How has 3-point shooting evolved over the years?
-run: regular_season -> {
-  group_by: SEASON_YEAR
-  aggregate: avg_three_pct
-  order_by: SEASON_YEAR
-}
-// Which teams have the most wins since 2010?
-run: regular_season -> {
-  group_by: TEAM_NAME
-  aggregate: total_wins
-  order_by: total_wins desc
-  limit: 10
-}
+
 source: box_scores is duckdb.table('regular_season_box_scores_2010_2024_part_1.csv') extend {
   measure:
     avg_points is points.avg()
+    avg_three_attempts is threePointersAttempted.avg()
+    avg_three_made is threePointersMade.avg()
     total_games is count()
 }
+// Chapter 1: Points per game over time
+run: regular_season -> {
+  group_by: SEASON_YEAR
+  aggregate: avg_points
+  order_by: SEASON_YEAR
+}
 
-// Top 10 highest scoring players on average
+// Chapter 1: Possessions per game over time (pace)
+run: regular_season -> {
+  group_by: SEASON_YEAR
+  aggregate: avg_possessions
+  order_by: SEASON_YEAR
+}
+
+// Chapter 1: 3-point attempts over time
+run: regular_season -> {
+  group_by: SEASON_YEAR
+  aggregate: avg_three_attempts
+  order_by: SEASON_YEAR
+}
+
+// Chapter 2: Which team pioneered the 3-point revolution first?
+run: regular_season -> {
+  group_by: SEASON_YEAR, TEAM_NAME
+  aggregate: avg_three_attempts
+  order_by: avg_three_attempts desc
+  limit: 10
+}
+
+// Chapter 2: Which player pioneered the 3-point revolution?
+run: box_scores -> {
+  group_by: season_year, personName
+  aggregate: avg_three_attempts
+  having: total_games > 50
+  order_by: avg_three_attempts desc
+  limit: 10
+}
+
+// Chapter 3: Do teams that shoot more 3s win more?
+run: regular_season -> {
+  group_by: TEAM_NAME
+  aggregate: avg_three_attempts, win_pct
+  order_by: win_pct desc
+  limit: 15
+}
+
+// Chapter 3: Do higher scoring teams win more?
+run: regular_season -> {
+  group_by: TEAM_NAME
+  aggregate: avg_points, win_pct
+  order_by: win_pct desc
+  limit: 15
+}
+
+// Chapter 4: Turnovers vs winning
+run: regular_season -> {
+  group_by: TEAM_NAME
+  aggregate: avg_turnovers, win_pct
+  order_by: win_pct desc
+  limit: 15
+}
+
+// Chapter 4: Assists vs winning
+run: regular_season -> {
+  group_by: TEAM_NAME
+  aggregate: avg_assists, win_pct
+  order_by: win_pct desc
+  limit: 15
+}
+
+// Chapter 5: Top 10 teams by wins
+run: regular_season -> {
+  group_by: TEAM_NAME
+  aggregate: total_wins, win_pct
+  order_by: total_wins desc
+  limit: 10
+}
+
+// Chapter 6: Players who benefited most from the 3-point era
 run: box_scores -> {
   group_by: personName
-  aggregate: avg_points, total_games
-  having: total_games > 100
+  aggregate: avg_three_attempts, avg_three_made, avg_points
+  having: total_games > 200
+  order_by: avg_three_attempts desc
+  limit: 10
+}
+
+// Chapter 6: Who is the ultimate product of the modern NBA?
+run: box_scores -> {
+  group_by: personName
+  aggregate: avg_points, avg_three_attempts, avg_three_made, total_games
+  having: total_games > 300
   order_by: avg_points desc
   limit: 10
 }

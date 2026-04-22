@@ -1,0 +1,69 @@
+>>>markdown
+# 🏀 The 3-Point Revolution: How the NBA Changed from 2010–2024
+
+I've always watched the NBA and noticed the game looks different than it did 10 years ago — more threes, faster pace, different stars. I wanted to see if the data actually backed that up. Here's what I found.
+
+---
+
+## Question 1: Which teams dominated the last 14 seasons?
+>>>malloy
+source: regular_season is duckdb.table('regular_season_totals_2010_2024.csv') extend {
+  measure:
+    avg_points is PTS.avg()
+    total_wins is count() { where: WL = 'W' }
+    avg_three_pct is FG3_PCT.avg()
+    total_games is count()
+}
+
+run: regular_season -> {
+  group_by: TEAM_NAME
+  aggregate: total_wins
+  order_by: total_wins desc
+  limit: 10
+}
+>>>markdown
+The Golden State Warriors lead with 676 wins — no surprise given their dynasty. But seeing the Celtics and Heat right behind them tells a deeper story about consistent franchises.
+
+---
+
+## Question 2: Has 3-point shooting percentage improved?
+>>>malloy
+run: regular_season -> {
+  group_by: SEASON_YEAR
+  aggregate: avg_three_pct
+  order_by: SEASON_YEAR
+}
+>>>markdown
+Surprisingly, the percentage has stayed relatively flat around 35% — teams aren't shooting better, they're just shooting way more. Which leads to the most surprising finding...
+
+---
+
+## Question 3: How many more 3-pointers are teams attempting?
+>>>malloy
+run: regular_season -> {
+  group_by: SEASON_YEAR
+  aggregate: avg_three_attempts is FG3A.avg()
+  order_by: SEASON_YEAR
+}
+>>>markdown
+This is the 3-point revolution in data form. Teams went from 18 attempts per game in 2010 to over 34 by 2020 — nearly doubled in a decade. The strategy completely changed even though the accuracy didn't.
+
+---
+
+## Question 4: Who are the most prolific scorers of this era?
+>>>malloy
+source: box_scores is duckdb.table('regular_season_box_scores_2010_2024_part_1.csv') extend {
+  measure:
+    avg_points is points.avg()
+    total_games is count()
+}
+
+run: box_scores -> {
+  group_by: personName
+  aggregate: avg_points, total_games
+  having: total_games > 100
+  order_by: avg_points desc
+  limit: 10
+}
+>>>markdown
+Luka Doncic leads all players with 28.3 points per game — remarkable. But Stephen Curry's combination of 906 games played and 24.5 average shows unmatched consistency over the entire era.
